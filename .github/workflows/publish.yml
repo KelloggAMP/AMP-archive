@@ -1,0 +1,34 @@
+name: Publish AMP Archive
+
+# Manual only — click "Run workflow" on the Actions tab after new files are
+# added to the SharePoint archive. Used once Graph access is granted.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write      # commit the rebuilt site
+  id-token: write      # GitHub OIDC token (no client secret needed)
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install msal requests
+      - name: Build the site from SharePoint (Microsoft Graph)
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          SHAREPOINT_SITE_URL: ${{ secrets.SHAREPOINT_SITE_URL }}
+          ARCHIVE_FOLDER: ${{ secrets.ARCHIVE_FOLDER }}
+        run: python scripts/build_site.py --source graph --title "AMP Stock Pitch Archive"
+      - name: Publish
+        run: |
+          git config user.name "amp-archive-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs
+          git diff --staged --quiet || git commit -m "Update archive $(date +%F)"
+          git push
