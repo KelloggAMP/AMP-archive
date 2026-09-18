@@ -26,7 +26,7 @@ echo "▶ Reading: $ARCHIVE_PATH"
 echo "  (reads names only — for a COMPLETE build, first right-click the folder →"
 echo "   'Always keep on this device' and wait for OneDrive to say 'Up to date'.)"
 python3 scripts/build_site.py --source local --root "$ARCHIVE_PATH" \
-    --base-url "$SP_BASE_URL" --link-mode path --title "AMP Stock Pitch Archive" \
+    --base-url "$SP_BASE_URL" --link-mode path --title "AMP Archive" \
     || { echo "✖ build failed"; pause 1; }
 echo
 

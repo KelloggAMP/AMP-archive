@@ -164,7 +164,7 @@ def from_graph():
 TEMPLATE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>__TITLE__</title>
 <style>
- :root{--bg:#0f1419;--panel:#171d26;--panel2:#1e2632;--line:#2a3340;--text:#e8edf3;--muted:#8a97a8;--accent:#4da3ff;--pill:#243042}
+ :root{--bg:#0f1419;--panel:#171d26;--panel2:#1e2632;--line:#2a3340;--text:#e8edf3;--muted:#8a97a8;--accent:#a78bfa;--pill:#2b2440}
  *{box-sizing:border-box} body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
  header{padding:20px 24px;border-bottom:1px solid var(--line);background:var(--panel)} h1{margin:0;font-size:20px}
  .sub{color:var(--muted);font-size:13px;margin-left:8px} .stats{margin-top:8px;color:var(--muted);font-size:13px} .stats b{color:var(--accent)}
@@ -179,7 +179,7 @@ TEMPLATE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
  a.file{color:var(--accent);text-decoration:none} a.file:hover{text-decoration:underline} .empty{padding:50px;text-align:center;color:var(--muted)}
  .foot{padding:14px 24px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
 </style></head><body>
-<header><h1>__TITLE__ <span class="sub">read-only archive</span></h1><div class="stats" id="stats"></div></header>
+<header><h1>__TITLE__</h1><div class="stats" id="stats"></div></header>
 <div class="controls">
  <input type="search" id="q" placeholder="Search ticker, company, filename…" autofocus>
  <select id="fSection"><option value="">All sections</option></select>
@@ -236,7 +236,7 @@ def main():
     ap.add_argument("--root", help="local mode: the archive folder on this computer")
     ap.add_argument("--base-url", default="", help="local mode: web address of that folder (for links)")
     ap.add_argument("--link-mode", choices=["path", "folder"], default="path")
-    ap.add_argument("--title", default="AMP Stock Pitch Archive")
+    ap.add_argument("--title", default="AMP Archive")
     ap.add_argument("--out", default="docs")
     args = ap.parse_args()
     if args.source == "local":
