@@ -164,7 +164,7 @@ def from_graph():
 TEMPLATE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>__TITLE__</title>
 <style>
- :root{--bg:#0f1419;--panel:#171d26;--panel2:#1e2632;--line:#2a3340;--text:#e8edf3;--muted:#8a97a8;--accent:#a78bfa;--pill:#2b2440}
+ :root{--bg:#251640;--panel:#30204f;--panel2:#372459;--line:#4a3571;--text:#ded6ee;--muted:#a99ac4;--accent:#ffffff;--pill:#422e6b}
  *{box-sizing:border-box} body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
  header{padding:20px 24px;border-bottom:1px solid var(--line);background:var(--panel)} h1{margin:0;font-size:20px}
  .sub{color:var(--muted);font-size:13px;margin-left:8px} .stats{margin-top:8px;color:var(--muted);font-size:13px} .stats b{color:var(--accent)}
@@ -176,7 +176,7 @@ TEMPLATE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
  th{position:sticky;top:64px;background:var(--bg);color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.4px;cursor:pointer;white-space:nowrap}
  th:hover{color:var(--text)} tr:hover td{background:var(--panel)} .tk{font-weight:700;color:var(--accent)} .muted{color:var(--muted)}
  .pill{display:inline-block;padding:2px 8px;border-radius:20px;background:var(--pill);font-size:11px;color:var(--muted)}
- a.file{color:var(--accent);text-decoration:none} a.file:hover{text-decoration:underline} .empty{padding:50px;text-align:center;color:var(--muted)}
+ a.file{color:var(--accent);text-decoration:underline;text-decoration-color:rgba(255,255,255,.3);text-underline-offset:3px} a.file:hover{text-decoration:underline} .empty{padding:50px;text-align:center;color:var(--muted)}
  .foot{padding:14px 24px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
 </style></head><body>
 <header><h1>__TITLE__</h1><div class="stats" id="stats"></div></header>

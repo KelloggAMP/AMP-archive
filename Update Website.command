@@ -7,10 +7,10 @@
 cd "$(dirname "$0")" || exit 1
 
 # ---- The synced SharePoint folder on THIS Mac ----
-ARCHIVE_PATH="$HOME/Library/CloudStorage/OneDrive-SharedLibraries-NorthwesternUniversity/Asset Management Practicum Class - Documents/Historical Pitches, Updates, Alumni, Jobs, etc/PAST AMP STOCK PITCHES & UPDATES"
+ARCHIVE_PATH="$HOME/Library/CloudStorage/OneDrive-SharedLibraries-NorthwesternUniversity/Asset Management Practicum Class - Documents/Historical Pitches, Updates, Alumni, Jobs, etc/Website Archive"
 
 # ---- The web address of that SAME folder (for file links) ----
-SP_BASE_URL="https://nuwildcat.sharepoint.com/sites/KSM-AMP/Shared%20Documents/Historical%20Pitches%2C%20Updates%2C%20Alumni%2C%20Jobs%2C%20etc/PAST%20AMP%20STOCK%20PITCHES%20%26%20UPDATES"
+SP_BASE_URL="https://nuwildcat.sharepoint.com/sites/KSM-AMP/Shared%20Documents/Historical%20Pitches%2C%20Updates%2C%20Alumni%2C%20Jobs%2C%20etc/Website%20Archive"
 
 pause () { echo; read -n 1 -s -r -p "Press any key to close..."; exit "$1"; }
 
