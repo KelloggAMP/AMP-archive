@@ -178,7 +178,17 @@ TEMPLATE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
  .pill{display:inline-block;padding:2px 8px;border-radius:20px;background:var(--pill);font-size:11px;color:var(--muted)}
  a.file{color:var(--accent);text-decoration:underline;text-decoration-color:rgba(255,255,255,.3);text-underline-offset:3px} a.file:hover{text-decoration:underline} .empty{padding:50px;text-align:center;color:var(--muted)}
  .foot{padding:14px 24px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
+ #gate{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px}
+ #gate .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:28px 30px;width:320px;max-width:100%;text-align:center}
+ #gate h2{margin:0 0 6px;font-size:18px} #gate p{margin:0 0 16px;color:var(--muted);font-size:13px}
+ #gate input{width:100%;margin-bottom:10px} #gate .err{color:#ff9aa2;font-size:12px;min-height:16px;margin-top:8px}
+ #gate button{width:100%;background:var(--accent);color:#201a2e;border:0;border-radius:8px;padding:9px;font-size:14px;font-weight:600;cursor:pointer}
 </style></head><body>
+<div id="gate" hidden><div class="card">
+ <h2>__TITLE__</h2><p>Enter the password to continue</p>
+ <input type="password" id="pw" placeholder="Password" autocomplete="off">
+ <button id="go">Enter</button><div class="err" id="err"></div>
+</div></div>
 <header><h1>__TITLE__</h1><div class="stats" id="stats"></div></header>
 <div class="controls">
  <input type="search" id="q" placeholder="Search ticker, company, filename…" autofocus>
@@ -190,8 +200,19 @@ TEMPLATE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <table><thead><tr id="head"></tr></thead><tbody id="rows"></tbody></table>
 <div class="empty" id="empty" style="display:none">No matches.</div></div>
 <div class="foot" id="foot"></div>
-<script id="data">window.DATA=__DATA__;window.BUILT=__BUILT__;</script>
+<script id="data">window.DATA=__DATA__;window.BUILT=__BUILT__;window.PWHASH=__PWHASH__;</script>
 <script>
+(function(){var H=window.PWHASH||0;if(!H)return;
+ function hsh(t){var x=5381;for(var i=0;i<t.length;i++)x=((x*33)^t.charCodeAt(i))>>>0;return x}
+ var ok=false;try{ok=localStorage.getItem("amp_unlocked")==="1"}catch(e){}
+ var g=document.getElementById("gate");if(ok){g.remove();return}
+ g.hidden=false;document.body.style.overflow="hidden";
+ var pw=document.getElementById("pw"),er=document.getElementById("err");
+ function go(){if(hsh(pw.value)===H){try{localStorage.setItem("amp_unlocked","1")}catch(e){}
+   g.remove();document.body.style.overflow=""}else{er.textContent="Incorrect password";pw.select()}}
+ document.getElementById("go").onclick=go;
+ pw.addEventListener("keydown",function(e){if(e.key==="Enter")go()});
+ setTimeout(function(){pw.focus()},30);})();
 const D=window.DATA||[];
 const COLS=[["ticker","Ticker"],["company","Company"],["period","Period"],["section","Section"],["doc_type","Type"],["file","File",1]];
 let sk="period",sd=-1;
@@ -218,13 +239,21 @@ function render(){head();const rows=filtered().sort((a,b)=>{let x=(a[sk]||"")+""
 </script></body></html>"""
 
 
-def render(recs, title, out="docs"):
+def js_hash(t):
+    h = 5381
+    for ch in t:
+        h = ((h * 33) ^ ord(ch)) & 0xFFFFFFFF
+    return h
+
+
+def render(recs, title, out="docs", password=""):
     Path(out).mkdir(parents=True, exist_ok=True)
     (Path(out) / ".nojekyll").touch()
     page = (TEMPLATE
             .replace("__TITLE__", title)
             .replace("__DATA__", json.dumps(recs, separators=(",", ":")))
-            .replace("__BUILT__", json.dumps(datetime.date.today().isoformat())))
+            .replace("__BUILT__", json.dumps(datetime.date.today().isoformat()))
+            .replace("__PWHASH__", str(js_hash(password)) if password else "0"))
     (Path(out) / "index.html").write_text(page)
     tick = len({r["ticker"] for r in recs if r["ticker"]})
     print(f"Wrote {out}/index.html — {len(recs)} files, {tick} companies.")
@@ -238,6 +267,7 @@ def main():
     ap.add_argument("--link-mode", choices=["path", "folder"], default="path")
     ap.add_argument("--title", default="AMP Archive")
     ap.add_argument("--out", default="docs")
+    ap.add_argument("--password", default="", help="optional password gate (client-side speed bump only)")
     args = ap.parse_args()
     if args.source == "local":
         if not args.root:
@@ -245,7 +275,7 @@ def main():
         recs = from_local(args.root, args.base_url, args.link_mode)
     else:
         recs = from_graph()
-    render(recs, args.title, args.out)
+    render(recs, args.title, args.out, args.password)
 
 
 if __name__ == "__main__":

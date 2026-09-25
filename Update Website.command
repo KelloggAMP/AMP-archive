@@ -25,8 +25,10 @@ fi
 echo "▶ Reading: $ARCHIVE_PATH"
 echo "  (reads names only — for a COMPLETE build, first right-click the folder →"
 echo "   'Always keep on this device' and wait for OneDrive to say 'Up to date'.)"
+PW="$(cat .password 2>/dev/null | tr -d "\r\n")"
+[ -z "$PW" ] && echo "  (note: no .password file — site will build WITHOUT the password gate)"
 python3 scripts/build_site.py --source local --root "$ARCHIVE_PATH" \
-    --base-url "$SP_BASE_URL" --link-mode path --title "AMP Archive" \
+    --base-url "$SP_BASE_URL" --link-mode path --title "AMP Archive" --password "$PW" \
     || { echo "✖ build failed"; pause 1; }
 echo
 
