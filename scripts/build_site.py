@@ -203,40 +203,56 @@ TEMPLATE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <div class="foot" id="foot"></div>
 <script id="data">window.DATA_B64="__DATA__";window.BUILT=__BUILT__;window.PWHASH=__PWHASH__;</script>
 <script>
-(function(){var H=window.PWHASH||0;if(!H)return;
- function hsh(t){var x=5381;for(var i=0;i<t.length;i++)x=((x*33)^t.charCodeAt(i))>>>0;return x}
- var ok=false;try{ok=localStorage.getItem("amp_unlocked")==="1"}catch(e){}
- var g=document.getElementById("gate");if(ok){g.remove();return}
- g.hidden=false;document.body.style.overflow="hidden";
- var pw=document.getElementById("pw"),er=document.getElementById("err");
- function go(){if(hsh(pw.value)===H){try{localStorage.setItem("amp_unlocked","1")}catch(e){}
-   g.remove();document.body.style.overflow=""}else{er.textContent="Incorrect password";pw.select()}}
- document.getElementById("go").onclick=go;
- pw.addEventListener("keydown",function(e){if(e.key==="Enter")go()});
- setTimeout(function(){pw.focus()},30);})();
-const D=(function(){try{var b=atob(window.DATA_B64||"");var u=Uint8Array.from(b,function(c){return c.charCodeAt(0)});return JSON.parse(new TextDecoder().decode(u))}catch(e){return[]}})();
-const COLS=[["ticker","Ticker"],["company","Company"],["period","Period"],["section","Section"],["doc_type","Type"],["file","File",1]];
-let sk="period",sd=-1;
-const uniq=k=>[...new Set(D.map(r=>r[k]).filter(Boolean))];
-function fill(id,arr,s){const e=document.getElementById(id);(s?arr.sort():arr).forEach(v=>{const o=document.createElement("option");o.value=o.textContent=v;e.appendChild(o)})}
-fill("fSection",uniq("section"),true);fill("fYear",uniq("year").sort().reverse(),false);fill("fType",uniq("doc_type"),true);
-document.getElementById("stats").innerHTML=`<b>${D.length}</b> files · <b>${new Set(D.map(r=>r.ticker).filter(Boolean)).size}</b> companies`;
-document.getElementById("foot").textContent="Last updated: "+(window.BUILT||"");
-const q_=document.getElementById("q"),fS=document.getElementById("fSection"),fY=document.getElementById("fYear"),fT=document.getElementById("fType");
-function esc(s){return s?(""+s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])):s}
-function head(){document.getElementById("head").innerHTML=COLS.map(c=>`<th data-k="${c[0]}">${c[1]}${!c[2]&&c[0]===sk?(sd<0?" ▼":" ▲"):""}</th>`).join("");
- document.querySelectorAll("#head th").forEach(t=>{const k=t.dataset.k;if(COLS.find(c=>c[0]===k)[2])return;t.onclick=()=>{sk===k?sd*=-1:(sk=k,sd=1);render()}})}
-function filtered(){const q=q_.value.toLowerCase(),fs=fS.value,fy=fY.value,ft=fT.value;
- return D.filter(r=>{if(fs&&r.section!==fs)return 0;if(fy&&r.year!==fy)return 0;if(ft&&r.doc_type!==ft)return 0;
-  if(q){if(![r.ticker,r.company,r.filename].join(" ").toLowerCase().includes(q))return 0}return 1})}
-function render(){head();const rows=filtered().sort((a,b)=>{let x=(a[sk]||"")+"",y=(b[sk]||"")+"";return x<y?-sd:x>y?sd:0});
- document.getElementById("count").textContent=`${rows.length} result${rows.length===1?"":"s"}`;
- document.getElementById("empty").style.display=rows.length?"none":"block";
- document.getElementById("rows").innerHTML=rows.slice(0,4000).map(r=>`<tr>
-  <td class="tk">${r.ticker||'<span class=muted>?</span>'}</td><td>${esc(r.company)||'<span class=muted>—</span>'}</td>
-  <td class="muted">${r.period||"—"}</td><td><span class="pill">${r.section||"—"}</span></td><td>${r.doc_type||"—"}</td>
-  <td>${r.url?`<a class="file" href="${r.url}" target="_blank" title="${esc(r.filename)}">${esc(r.filename)} ↗</a>`:esc(r.filename)}</td></tr>`).join("")}
-[q_,fS,fY,fT].forEach(e=>e.addEventListener("input",render));render();
+(function(){
+var H=window.PWHASH||0;
+function hsh(t){var x=5381;for(var i=0;i<t.length;i++)x=((x*33)^t.charCodeAt(i))>>>0;return x}
+function decode(){try{var b=atob(window.DATA_B64||'');var u=Uint8Array.from(b,function(c){return c.charCodeAt(0)});
+ return JSON.parse(new TextDecoder().decode(u))}catch(e){return[]}}
+function start(){
+ var D=decode();
+ var COLS=[['ticker','Ticker'],['company','Company'],['period','Period'],['section','Section'],['doc_type','Type'],['file','File',1]];
+ var sk='period',sd=-1;
+ var q_=document.getElementById('q'),fS=document.getElementById('fSection'),fY=document.getElementById('fYear'),fT=document.getElementById('fType');
+ function uniq(k){var seen={},out=[];D.forEach(function(r){if(r[k]&&!seen[r[k]]){seen[r[k]]=1;out.push(r[k])}});return out}
+ function fill(el,arr,srt){if(srt)arr.sort();arr.forEach(function(v){var o=document.createElement('option');o.value=o.textContent=v;el.appendChild(o)})}
+ fill(fS,uniq('section'),true);fill(fY,uniq('year').sort().reverse(),false);fill(fT,uniq('doc_type'),true);
+ var tk={};D.forEach(function(r){if(r.ticker)tk[r.ticker]=1});
+ document.getElementById('stats').innerHTML='<b>'+D.length+'</b> files &middot; <b>'+Object.keys(tk).length+'</b> companies';
+ document.getElementById('foot').textContent='Last updated: '+(window.BUILT||'');
+ function esc(s){return s?(''+s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]}):s}
+ function head(){document.getElementById('head').innerHTML=COLS.map(function(c){
+   return '<th data-k="'+c[0]+'">'+c[1]+(!c[2]&&c[0]===sk?(sd<0?' &#9660;':' &#9650;'):'')+'</th>'}).join('');
+  Array.prototype.forEach.call(document.querySelectorAll('#head th'),function(t){
+   var k=t.getAttribute('data-k'),col=COLS.filter(function(c){return c[0]===k})[0];
+   if(col[2])return;t.onclick=function(){if(sk===k){sd*=-1}else{sk=k;sd=1}render()}})}
+ function filtered(){var q=q_.value.toLowerCase(),fs=fS.value,fy=fY.value,ft=fT.value;
+  return D.filter(function(r){if(fs&&r.section!==fs)return false;if(fy&&r.year!==fy)return false;if(ft&&r.doc_type!==ft)return false;
+   if(q&&[r.ticker,r.company,r.filename].join(' ').toLowerCase().indexOf(q)<0)return false;return true})}
+ function render(){head();var rows=filtered().sort(function(a,b){var x=(a[sk]||'')+'',y=(b[sk]||'')+'';return x<y?-sd:x>y?sd:0});
+  document.getElementById('count').textContent=rows.length+' result'+(rows.length===1?'':'s');
+  document.getElementById('empty').style.display=rows.length?'none':'block';
+  document.getElementById('rows').innerHTML=rows.slice(0,4000).map(function(r){
+   var link=r.url?'<a class="file" href="'+r.url+'" target="_blank" title="'+esc(r.filename)+'">'+esc(r.filename)+' &#8599;</a>':esc(r.filename);
+   return '<tr><td class="tk">'+(r.ticker||'<span class="muted">?</span>')+'</td>'+
+    '<td>'+(esc(r.company)||'<span class="muted">&mdash;</span>')+'</td>'+
+    '<td class="muted">'+(r.period||'&mdash;')+'</td>'+
+    '<td><span class="pill">'+(r.section||'&mdash;')+'</span></td>'+
+    '<td>'+(r.doc_type||'&mdash;')+'</td><td>'+link+'</td></tr>'}).join('')}
+ [q_,fS,fY,fT].forEach(function(e){e.addEventListener('input',render)});
+ render();
+}
+if(!H){start();return}
+var ok=false;try{ok=localStorage.getItem('amp_unlocked')==='1'}catch(e){}
+var g=document.getElementById('gate');
+if(ok){g.remove();start();return}
+g.hidden=false;document.body.style.overflow='hidden';
+var pw=document.getElementById('pw'),er=document.getElementById('err');
+function go(){if(hsh(pw.value)===H){try{localStorage.setItem('amp_unlocked','1')}catch(e){}
+  g.remove();document.body.style.overflow='';start()}else{er.textContent='Incorrect password';pw.select()}}
+document.getElementById('go').onclick=go;
+pw.addEventListener('keydown',function(e){if(e.key==='Enter')go()});
+setTimeout(function(){pw.focus()},30);
+})();
 </script></body></html>"""
 
 
