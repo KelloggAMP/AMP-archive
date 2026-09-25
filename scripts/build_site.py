@@ -162,7 +162,8 @@ def from_graph():
 
 # --------------------------------------------------------------- rendering ----
 TEMPLATE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>__TITLE__</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive,nosnippet"><title>__TITLE__</title>
 <style>
  :root{--bg:#201a2e;--panel:#282133;--panel2:#2e2640;--line:#3f3652;--text:#e3dded;--muted:#a096b5;--accent:#ffffff;--pill:#382f4d}
  *{box-sizing:border-box} body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
@@ -200,7 +201,7 @@ TEMPLATE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <table><thead><tr id="head"></tr></thead><tbody id="rows"></tbody></table>
 <div class="empty" id="empty" style="display:none">No matches.</div></div>
 <div class="foot" id="foot"></div>
-<script id="data">window.DATA=__DATA__;window.BUILT=__BUILT__;window.PWHASH=__PWHASH__;</script>
+<script id="data">window.DATA_B64="__DATA__";window.BUILT=__BUILT__;window.PWHASH=__PWHASH__;</script>
 <script>
 (function(){var H=window.PWHASH||0;if(!H)return;
  function hsh(t){var x=5381;for(var i=0;i<t.length;i++)x=((x*33)^t.charCodeAt(i))>>>0;return x}
@@ -213,7 +214,7 @@ TEMPLATE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
  document.getElementById("go").onclick=go;
  pw.addEventListener("keydown",function(e){if(e.key==="Enter")go()});
  setTimeout(function(){pw.focus()},30);})();
-const D=window.DATA||[];
+const D=(function(){try{var b=atob(window.DATA_B64||"");var u=Uint8Array.from(b,function(c){return c.charCodeAt(0)});return JSON.parse(new TextDecoder().decode(u))}catch(e){return[]}})();
 const COLS=[["ticker","Ticker"],["company","Company"],["period","Period"],["section","Section"],["doc_type","Type"],["file","File",1]];
 let sk="period",sd=-1;
 const uniq=k=>[...new Set(D.map(r=>r[k]).filter(Boolean))];
@@ -249,9 +250,10 @@ def js_hash(t):
 def render(recs, title, out="docs", password=""):
     Path(out).mkdir(parents=True, exist_ok=True)
     (Path(out) / ".nojekyll").touch()
+    (Path(out) / "robots.txt").write_text("User-agent: *\nDisallow: /\n")
     page = (TEMPLATE
             .replace("__TITLE__", title)
-            .replace("__DATA__", json.dumps(recs, separators=(",", ":")))
+            .replace("__DATA__", base64.b64encode(json.dumps(recs, separators=(",", ":")).encode("utf-8")).decode("ascii"))
             .replace("__BUILT__", json.dumps(datetime.date.today().isoformat()))
             .replace("__PWHASH__", str(js_hash(password)) if password else "0"))
     (Path(out) / "index.html").write_text(page)
