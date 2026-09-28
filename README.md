@@ -53,6 +53,12 @@ independent of the rules above, so changes to one can't affect the other. It has
 folders, so the quarter is **estimated from the file date** (Winter = Jan–mid-Mar,
 Spring = late Mar–Jun, Fall = Sep–Dec). New files use their actual folder instead.
 
+> **Note on the Quarter column:** it mixes both kinds of value — *stated* for new files
+> (read from the folder) and *estimated* for legacy files (derived from the date). They are
+> not visually distinguished. The estimates follow real AMP session boundaries and are
+> reliable to the term, but they are inferred, not authoritative. A legacy file with no
+> readable date has no quarter at all.
+
 ## Access on the site
 The page is gated by a password and the catalog is only decoded after it's entered;
 `robots.txt` + `noindex` keep crawlers away. This stops bots, **not** determined people —
