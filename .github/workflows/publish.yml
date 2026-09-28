@@ -1,9 +1,11 @@
 name: Publish AMP Archive
 
-# Manual only — click "Run workflow" on the Actions tab after new files are
-# added to the SharePoint archive. Used once Graph access is granted.
+# Runs nightly on its own, and can be run on demand any time via the
+# "Run workflow" button on the Actions tab. Reads SharePoint via Graph.
 on:
-  workflow_dispatch:
+  workflow_dispatch:        # manual button, any time
+  schedule:
+    - cron: "0 9 * * *"    # nightly ~09:00 UTC (~4am Chicago)
 
 permissions:
   contents: write      # commit the rebuilt site

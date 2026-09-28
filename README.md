@@ -1,51 +1,45 @@
 # AMP Stock Pitch Archive
 
-A read-only, searchable catalog website of the Asset Management Practicum's
-historical stock pitches and updates. It reads the files where they live in
-SharePoint and publishes a browsable index to GitHub Pages. It never moves,
-renames, or changes any files.
+A read-only, searchable catalog of the Asset Management Practicum's stock pitches
+and updates. It reads the archive where it lives in SharePoint and publishes a
+browsable index to GitHub Pages. **It never moves, renames, or changes any file.**
 
-**Live site:** https://adamgodina.github.io/amp-archive-test/
+**Live site:** https://kelloggamp.github.io/AMP-archive/
 
-## How it works
-`scripts/build_site.py` reads the archive (names, folders, links — never file
-contents) and writes `docs/index.html`, a self-contained page that GitHub Pages
-serves. It has two interchangeable sources that produce the **same** site:
+## How it runs (the real model)
+`.github/workflows/publish.yml` runs `scripts/build_site.py --source graph`, which
+reads one SharePoint site through Microsoft Graph and rewrites `docs/index.html`.
 
-| Source | When | Runs | Needs |
-|---|---|---|---|
-| **local** | now | your Mac (double-click) | folder synced in OneDrive |
-| **graph** | later | GitHub's cloud (a button) | IT grant on one SharePoint site |
+- **Nightly** — automatic, ~09:00 UTC. Faculty just drop files in SharePoint.
+- **On demand** — Actions tab → *Publish AMP Archive* → **Run workflow**.
 
-## Using it now — LOCAL (no IT)
-1. In OneDrive, sync the SharePoint library. For a **complete** build, right-click
-   `PAST AMP STOCK PITCHES & UPDATES` → **"Always keep on this device"** and wait
-   for OneDrive to say **"Up to date"** (online-only misses files that haven't
-   downloaded yet).
-2. Double-click **`Update Website.command`** — it rebuilds `docs/` and pushes.
-   ~1 minute later the live site updates.
+If nothing in the archive changed, the run makes no commit and the site is left alone.
 
-(Manual run: `python3 scripts/build_site.py --source local --root "<folder>" --base-url "<folder-url>"`)
+## Required repository secrets
+**Settings → Secrets and variables → Actions → _Repository_ secrets** (not environment secrets):
 
-## Switching to GRAPH later (nothing local)
-Once IT grants the app read access to the site:
-1. Add repo **Secrets** (Settings → Secrets and variables → Actions):
-   - `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`
-   - `SHAREPOINT_SITE_URL` = `https://nuwildcat.sharepoint.com/sites/KSM-AMP`
-   - `ARCHIVE_FOLDER` = `Historical Pitches, Updates, Alumni, Jobs, etc/PAST AMP STOCK PITCHES & UPDATES`
-2. **Actions → Publish AMP Archive → Run workflow.**
-That's the whole switch — same site, now with canonical per-file links, and you
-stop using the local launcher. (See `docs`-nothing else changes.)
+| Secret | Value |
+|---|---|
+| `AZURE_CLIENT_ID` | app registration Application (client) ID |
+| `AZURE_TENANT_ID` | Directory (tenant) ID |
+| `SHAREPOINT_SITE_URL` | `https://nuwildcat.sharepoint.com/sites/KSM-AMP` |
+| `ARCHIVE_FOLDER` | `Historical Pitches, Updates, Alumni, Jobs, etc/Website Archive` |
+| `PAGE_PASSWORD` | the site password (omit and the site publishes with **no** gate) |
 
-## Publish / hosting
-- Turn on Pages: **Settings → Pages → Deploy from a branch → `main` / `/docs`.**
-- The repo holds only the website + scripts. The pitch files stay in SharePoint;
-  the site links out to them (viewers need access to the SharePoint site).
+Auth uses a GitHub OIDC federated credential — there is **no client secret** to expire.
+
+## Access on the site
+The page is gated by a password and the catalog is only decoded after it's entered;
+`robots.txt` + `noindex` keep crawlers away. This stops bots, **not** determined people —
+the files themselves stay protected by SharePoint login.
+
+## Publishing
+Pages serves from **`main` / `/docs`**.
 
 ## Layout
 ```
-scripts/build_site.py     the builder (local + graph)
-.github/workflows/        the GitHub Action (graph mode)
-docs/index.html           the published website
-Update Website.command    double-click: local build + publish
+scripts/build_site.py      the builder (graph + local sources)
+.github/workflows/         nightly + manual publish
+docs/                      the published website
+local-fallback/            TEMPORARY - delete once Graph access is live
 ```

@@ -4,7 +4,7 @@
 #  Double-click to rebuild the website from the synced SharePoint
 #  folder and push it to GitHub Pages.
 # ============================================================
-cd "$(dirname "$0")" || exit 1
+cd "$(dirname "$0")/.." || exit 1
 
 # ---- The synced SharePoint folder on THIS Mac ----
 ARCHIVE_PATH="$HOME/Library/CloudStorage/OneDrive-SharedLibraries-NorthwesternUniversity/Asset Management Practicum Class - Documents/Historical Pitches, Updates, Alumni, Jobs, etc/Website Archive"
@@ -40,6 +40,6 @@ git push || { echo "✖ push failed — is your GitHub sign-in set up on this Ma
 echo
 echo "==============================================="
 echo "   Done — site updates in ~1 min at:"
-echo "   https://adamgodina.github.io/amp-archive-test/"
+echo "   https://kelloggamp.github.io/AMP-archive/"
 echo "==============================================="
 pause 0

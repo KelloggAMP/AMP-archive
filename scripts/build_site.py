@@ -272,7 +272,13 @@ def render(recs, title, out="docs", password=""):
             .replace("__DATA__", base64.b64encode(json.dumps(recs, separators=(",", ":")).encode("utf-8")).decode("ascii"))
             .replace("__BUILT__", json.dumps(datetime.date.today().isoformat()))
             .replace("__PWHASH__", str(js_hash(password)) if password else "0"))
-    (Path(out) / "index.html").write_text(page)
+    idx = Path(out) / "index.html"
+    def _strip_built(x):
+        return re.sub(r'window\.BUILT="[^"]*";', 'window.BUILT="";', x)
+    if idx.exists() and _strip_built(idx.read_text()) == _strip_built(page):
+        print(f"No changes \u2014 {out}/index.html left as-is ({len(recs)} files).")
+        return
+    idx.write_text(page)
     tick = len({r["ticker"] for r in recs if r["ticker"]})
     print(f"Wrote {out}/index.html — {len(recs)} files, {tick} companies.")
 
