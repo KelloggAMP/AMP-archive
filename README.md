@@ -49,7 +49,9 @@ Nvidia(NVDA)_2026-10-01_Pitch_Smith.pptx
 
 **Legacy** — `PAST AMP STOCK PITCHES & UPDATES` is frozen and never renamed. It's parsed
 from its folders (`Company (TICKER)/Updates/file`) by `extract_legacy()`, which is fully
-independent of the rules above, so changes to one can't affect the other.
+independent of the rules above, so changes to one can't affect the other. It has no quarter
+folders, so the quarter is **estimated from the file date** (Winter = Jan–mid-Mar,
+Spring = late Mar–Jun, Fall = Sep–Dec). New files use their actual folder instead.
 
 ## Access on the site
 The page is gated by a password and the catalog is only decoded after it's entered;

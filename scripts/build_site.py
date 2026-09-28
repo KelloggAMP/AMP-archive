@@ -90,6 +90,28 @@ def _bare_ticker(text):
     return None
 
 
+def _quarter_from_period(period):
+    """LEGACY ONLY: estimate the academic quarter from a date.
+    Boundaries match observed AMP sessions (Winter ran Jan-early Mar,
+    Spring from late Mar, Fall from late Sep)."""
+    if not period:
+        return None
+    m = re.match(r"^(\d{4})-(\d{2})(?:-(\d{2}))?$", period)
+    if not m:
+        return None
+    y, mo = int(m.group(1)), int(m.group(2))
+    d = int(m.group(3)) if m.group(3) else 1
+    if mo <= 2 or (mo == 3 and d < 20):
+        season = "Winter"
+    elif mo <= 6:
+        season = "Spring"
+    elif mo <= 8:
+        season = "Summer"
+    else:
+        season = "Fall"
+    return f"{season} {y}"
+
+
 LEGACY_ROOT = "past amp stock pitches & updates"
 QUARTER = re.compile(r"\b(Winter|Spring|Summer|Fall|Autumn)\s+(20\d\d)\b", re.I)
 
@@ -130,7 +152,8 @@ def extract_legacy(rel_parts, stem, ext):
             if dt:
                 break
     return {"ticker": ticker, "company": company, "year": year, "period": period,
-            "quarter": None, "doc_type": dt or "Document", "ext": ext.lower().lstrip(".")}
+            "quarter": _quarter_from_period(period), "doc_type": dt or "Document",
+            "ext": ext.lower().lstrip(".")}
 
 
 # ---------------------------------------------------------- MODERN parser ----
