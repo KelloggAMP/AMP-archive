@@ -25,7 +25,15 @@ from pathlib import Path
 # ---------------------------------------------------------------- parsing ----
 PITCH_EXTS = {".pptx", ".ppt", ".pdf", ".xlsx", ".xls", ".xlsm", ".xlsb", ".docx", ".doc"}
 SKIP_EXTS = {".lnk", ".tmp", ".ds_store"}
-COMPANY_TICKER = re.compile(r"^(.*?)\s*\(([A-Za-z.&]{1,6})\)\s*$")
+COMPANY_TICKER = re.compile(r"\(\s*([A-Za-z.&]{1,6})\s*\)")
+DATE_FULL = re.compile(r"\b(20\d\d)[-._]?(0[1-9]|1[0-2])[-._]?(0[1-9]|[12]\d|3[01])\b")
+DATE_MY   = re.compile(r"\b(0[1-9]|1[0-2])[-.](20\d\d)\b")
+YEAR      = re.compile(r"\b(20\d\d)\b")
+LEAD_TICKER = re.compile(r"^([A-Z]{1,6})(?=[\s\-.]|$)")
+TICKER_BEFORE_DATE = re.compile(r"\b([A-Z]{1,6})[\s\-.]*(?=20\d\d[-._]?\d)")
+NOT_TICKERS = {"AMP","THE","AND","FOR","VF","FINAL","DRAFT","WIP","INC","CORP","LLC","US","NEW","FY","Q",
+               "DECK","SLIDES","MODEL","DCF","REPORT","MEMO","UPDATE","PITCH","FEEDBACK","NOTES",
+               "STOCK","CASE","WEEK","CLASS","FUND","PORT","DOC","FILE","ANNUAL","BOARD"}
 DOC_KEYWORDS = [
     ("Presentation", ["presentation", "pitch", "deck", "slides"]),
     ("Model", ["model", "dcf"]),
@@ -33,46 +41,107 @@ DOC_KEYWORDS = [
     ("Update", ["update"]),
     ("Feedback", ["feedback"]),
 ]
+try:
+    TICKER_COMPANY = json.loads((Path(__file__).parent / "ticker_company.json").read_text())
+except Exception:
+    TICKER_COMPANY = {}
 
 
-def doc_type(stem):
-    s = stem.lower()
+def _norm(t):
+    """Underscores, hyphens-as-separators and spaces are all equivalent."""
+    return re.sub(r"\s+", " ", (t or "").replace("_", " ")).strip()
+
+
+def doc_type(text):
+    s = _norm(text).lower()
     for label, kws in DOC_KEYWORDS:
         if any(k in s for k in kws):
             return label
-    return "Document"
+    return None
+
+
+def _strip_known(t):
+    """Remove date / type / version tokens so the remainder can be a company name."""
+    t = DATE_FULL.sub(" ", t)
+    t = DATE_MY.sub(" ", t)
+    for _lab, kws in DOC_KEYWORDS:
+        for k in kws:
+            t = re.sub(r"(?i)\b" + re.escape(k) + r"\b", " ", t)
+    t = re.sub(r"(?i)\b(v\d+|vf|final|draft|wip)\b", " ", t)
+    return re.sub(r"\s+", " ", t).strip(" -.&")
+
+
+def _ticker_company(text):
+    """Find (TICKER) ANYWHERE; company = cleaned text immediately before it."""
+    t = _norm(text)
+    m = COMPANY_TICKER.search(t)
+    if not m:
+        return None, None
+    return m.group(1).upper().replace(".", ""), (_strip_known(t[:m.start()]) or None)
+
+
+def _bare_ticker(text):
+    """Ticker with no parentheses: must already be ALL-CAPS in the name."""
+    t = _norm(text)
+    for rx in (TICKER_BEFORE_DATE, LEAD_TICKER):
+        m = rx.search(t) if rx is TICKER_BEFORE_DATE else rx.match(t)
+        if m and m.group(1) not in NOT_TICKERS:
+            return m.group(1)
+    return None
 
 
 def extract(rel_parts, stem, ext):
-    company = ticker = year = period = section = None
-    for p in reversed(rel_parts[:-1]):
-        m = COMPANY_TICKER.match(p)
-        if m:
-            company = m.group(1).strip() or None
-            ticker = m.group(2).upper().replace(".", "")
+    folders = list(rel_parts[:-1])
+    order = [stem] + list(reversed(folders))          # filename first, then nearest folder
+    ticker = company = year = period = section = None
+
+    for text in order:                                 # 1) parenthesised ticker, any position
+        tk, co = _ticker_company(text)
+        if tk:
+            ticker, company = tk, co
             break
-    for p in rel_parts[:-1]:                       # section from FOLDERS, not the filename
+    if not ticker:                                     # 2) bare ticker fallback
+        for text in order:
+            tk = _bare_ticker(text)
+            if tk:
+                ticker = tk
+                break
+    if ticker and not company:                         # 3) ticker -> company lookup
+        company = TICKER_COMPANY.get(ticker)
+
+    for p in folders:                                  # section comes from FOLDERS only
         pl = p.lower()
         if "pitch" in pl:
             section = "Pitches"
         elif "update" in pl:
             section = "Updates"
-    for p in rel_parts:
-        m = re.search(r"\b(0[1-9]|1[0-2])[-.](20\d\d)\b", p)
+
+    for text in order:                                 # full date, any position
+        m = DATE_FULL.search(_norm(text))
         if m:
-            period, year = f"{m.group(2)}-{m.group(1)}", m.group(2)
+            period, year = f"{m.group(1)}-{m.group(2)}-{m.group(3)}", m.group(1)
             break
-    m = re.search(r"\b(20\d\d)[-._]?(0[1-9]|1[0-2])[-._]?(0[1-9]|[12]\d|3[01])\b", stem)
-    if m:
-        period, year = f"{m.group(1)}-{m.group(2)}-{m.group(3)}", m.group(1)
+    if not period:
+        for text in folders:
+            m = DATE_MY.search(text)
+            if m:
+                period, year = f"{m.group(2)}-{m.group(1)}", m.group(2)
+                break
     if not year:
-        for p in reversed(rel_parts):
-            m = re.search(r"\b(20\d\d)\b", p)
+        for text in reversed(rel_parts):
+            m = YEAR.search(text)
             if m:
                 year = m.group(1)
                 break
+
+    dt = doc_type(stem)
+    if not dt:
+        for f in reversed(folders):
+            dt = doc_type(f)
+            if dt:
+                break
     return {"ticker": ticker, "company": company, "year": year, "period": period,
-            "section": section, "doc_type": doc_type(stem), "ext": ext.lower().lstrip(".")}
+            "section": section, "doc_type": dt or "Document", "ext": ext.lower().lstrip(".")}
 
 
 def make_record(rel_parts, filename, url):
