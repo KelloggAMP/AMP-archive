@@ -90,50 +90,39 @@ def _bare_ticker(text):
     return None
 
 
-def extract(rel_parts, stem, ext):
-    folders = list(rel_parts[:-1])
-    order = [stem] + list(reversed(folders))          # filename first, then nearest folder
-    ticker = company = year = period = section = None
+LEGACY_ROOT = "past amp stock pitches & updates"
+QUARTER = re.compile(r"\b(Winter|Spring|Summer|Fall|Autumn)\s+(20\d\d)\b", re.I)
 
-    for text in order:                                 # 1) parenthesised ticker, any position
-        tk, co = _ticker_company(text)
+
+# ---------------------------------------------------------- LEGACY parser ----
+# Frozen. Serves ONLY the "PAST AMP STOCK PITCHES & UPDATES" tree, whose shape is
+# Company (TICKER)/Updates|Pitches/[Company (TICKER) MM-YYYY]/file
+# Do not change this to suit new-format needs - the new parser is separate.
+def extract_legacy(rel_parts, stem, ext):
+    folders = list(rel_parts[:-1])
+    ticker = company = year = period = None
+    for f in reversed(folders):
+        tk, co = _ticker_company(f)
         if tk:
             ticker, company = tk, co
             break
-    if not ticker:                                     # 2) bare ticker fallback
-        for text in order:
-            tk = _bare_ticker(text)
-            if tk:
-                ticker = tk
-                break
-    if ticker and not company:                         # 3) ticker -> company lookup
+    if ticker and not company:
         company = TICKER_COMPANY.get(ticker)
-
-    for p in folders:                                  # section comes from FOLDERS only
-        pl = p.lower()
-        if "pitch" in pl:
-            section = "Pitches"
-        elif "update" in pl:
-            section = "Updates"
-
-    for text in order:                                 # full date, any position
-        m = DATE_FULL.search(_norm(text))
-        if m:
-            period, year = f"{m.group(1)}-{m.group(2)}-{m.group(3)}", m.group(1)
-            break
-    if not period:
-        for text in folders:
-            m = DATE_MY.search(text)
+    m = DATE_FULL.search(_norm(stem))
+    if m:
+        period, year = f"{m.group(1)}-{m.group(2)}-{m.group(3)}", m.group(1)
+    else:
+        for f in folders:
+            m = DATE_MY.search(f)
             if m:
                 period, year = f"{m.group(2)}-{m.group(1)}", m.group(2)
                 break
     if not year:
-        for text in reversed(rel_parts):
-            m = YEAR.search(text)
+        for t in reversed(rel_parts):
+            m = YEAR.search(t)
             if m:
                 year = m.group(1)
                 break
-
     dt = doc_type(stem)
     if not dt:
         for f in reversed(folders):
@@ -141,7 +130,55 @@ def extract(rel_parts, stem, ext):
             if dt:
                 break
     return {"ticker": ticker, "company": company, "year": year, "period": period,
-            "section": section, "doc_type": dt or "Document", "ext": ext.lower().lstrip(".")}
+            "quarter": None, "doc_type": dt or "Document", "ext": ext.lower().lstrip(".")}
+
+
+# ---------------------------------------------------------- MODERN parser ----
+# Everything outside the legacy tree: quarter folders ("Winter 2027") holding
+# files named Company(TICKER)_YYYY-MM-DD_Type_Name - order/separator agnostic.
+def extract_modern(rel_parts, stem, ext):
+    folders = list(rel_parts[:-1])
+    ticker = company = year = period = quarter = None
+
+    ticker, company = _ticker_company(stem)          # filename is authoritative
+    if not ticker:
+        for f in reversed(folders):
+            tk, co = _ticker_company(f)
+            if tk:
+                ticker, company = tk, co
+                break
+    if not ticker:
+        ticker = _bare_ticker(stem) or next((t for t in (_bare_ticker(f) for f in reversed(folders)) if t), None)
+    if ticker and not company:
+        company = TICKER_COMPANY.get(ticker)
+
+    m = DATE_FULL.search(_norm(stem))
+    if m:
+        period, year = f"{m.group(1)}-{m.group(2)}-{m.group(3)}", m.group(1)
+
+    for f in folders:
+        q = QUARTER.search(f)
+        if q:
+            quarter = f"{q.group(1).title()} {q.group(2)}"
+            year = year or q.group(2)
+            break
+    if not year:
+        for t in reversed(rel_parts):
+            m = YEAR.search(t)
+            if m:
+                year = m.group(1)
+                break
+
+    return {"ticker": ticker, "company": company, "year": year, "period": period,
+            "quarter": quarter, "doc_type": doc_type(stem) or "Document",
+            "ext": ext.lower().lstrip(".")}
+
+
+def extract(rel_parts, stem, ext):
+    """Dispatch: the legacy tree keeps its own frozen rules."""
+    if rel_parts and rel_parts[0].strip().lower() == LEGACY_ROOT:
+        return extract_legacy(rel_parts, stem, ext)
+    return extract_modern(rel_parts, stem, ext)
 
 
 def make_record(rel_parts, filename, url):
@@ -262,7 +299,7 @@ TEMPLATE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <header><h1>__TITLE__</h1><div class="stats" id="stats"></div></header>
 <div class="controls">
  <input type="search" id="q" placeholder="Search ticker, company, filename…" autofocus>
- <select id="fSection"><option value="">All sections</option></select>
+ <select id="fQuarter"><option value="">All quarters</option></select>
  <select id="fYear"><option value="">All years</option></select>
  <select id="fType"><option value="">All types</option></select>
 </div>
@@ -279,12 +316,12 @@ function decode(){try{var b=atob(window.DATA_B64||'');var u=Uint8Array.from(b,fu
  return JSON.parse(new TextDecoder().decode(u))}catch(e){return[]}}
 function start(){
  var D=decode();
- var COLS=[['ticker','Ticker'],['company','Company'],['period','Period'],['section','Section'],['doc_type','Type'],['file','File',1]];
+ var COLS=[['ticker','Ticker'],['company','Company'],['period','Period'],['quarter','Quarter'],['doc_type','Type'],['file','File',1]];
  var sk='period',sd=-1;
- var q_=document.getElementById('q'),fS=document.getElementById('fSection'),fY=document.getElementById('fYear'),fT=document.getElementById('fType');
+ var q_=document.getElementById('q'),fS=document.getElementById('fQuarter'),fY=document.getElementById('fYear'),fT=document.getElementById('fType');
  function uniq(k){var seen={},out=[];D.forEach(function(r){if(r[k]&&!seen[r[k]]){seen[r[k]]=1;out.push(r[k])}});return out}
  function fill(el,arr,srt){if(srt)arr.sort();arr.forEach(function(v){var o=document.createElement('option');o.value=o.textContent=v;el.appendChild(o)})}
- fill(fS,uniq('section'),true);fill(fY,uniq('year').sort().reverse(),false);fill(fT,uniq('doc_type'),true);
+ fill(fS,uniq('quarter'),true);fill(fY,uniq('year').sort().reverse(),false);fill(fT,uniq('doc_type'),true);
  var tk={};D.forEach(function(r){if(r.ticker)tk[r.ticker]=1});
  document.getElementById('stats').innerHTML='<b>'+D.length+'</b> files &middot; <b>'+Object.keys(tk).length+'</b> companies';
  document.getElementById('foot').textContent='Last updated: '+(window.BUILT||'');
@@ -295,7 +332,7 @@ function start(){
    var k=t.getAttribute('data-k'),col=COLS.filter(function(c){return c[0]===k})[0];
    if(col[2])return;t.onclick=function(){if(sk===k){sd*=-1}else{sk=k;sd=1}render()}})}
  function filtered(){var q=q_.value.toLowerCase(),fs=fS.value,fy=fY.value,ft=fT.value;
-  return D.filter(function(r){if(fs&&r.section!==fs)return false;if(fy&&r.year!==fy)return false;if(ft&&r.doc_type!==ft)return false;
+  return D.filter(function(r){if(fs&&r.quarter!==fs)return false;if(fy&&r.year!==fy)return false;if(ft&&r.doc_type!==ft)return false;
    if(q&&[r.ticker,r.company,r.filename].join(' ').toLowerCase().indexOf(q)<0)return false;return true})}
  function render(){head();var rows=filtered().sort(function(a,b){var x=(a[sk]||'')+'',y=(b[sk]||'')+'';return x<y?-sd:x>y?sd:0});
   document.getElementById('count').textContent=rows.length+' result'+(rows.length===1?'':'s');
@@ -305,7 +342,7 @@ function start(){
    return '<tr><td class="tk">'+(r.ticker||'<span class="muted">?</span>')+'</td>'+
     '<td>'+(esc(r.company)||'<span class="muted">&mdash;</span>')+'</td>'+
     '<td class="muted">'+(r.period||'&mdash;')+'</td>'+
-    '<td><span class="pill">'+(r.section||'&mdash;')+'</span></td>'+
+    '<td><span class="pill">'+(r.quarter||'&mdash;')+'</span></td>'+
     '<td>'+(r.doc_type||'&mdash;')+'</td><td>'+link+'</td></tr>'}).join('')}
  [q_,fS,fY,fT].forEach(function(e){e.addEventListener('input',render)});
  render();
