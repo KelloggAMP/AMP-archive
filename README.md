@@ -28,6 +28,29 @@ If nothing in the archive changed, the run makes no commit and the site is left 
 
 Auth uses a GitHub OIDC federated credential — there is **no client secret** to expire.
 
+## Naming
+
+**New files** — drop into a quarter folder (`Winter 2027`), named:
+
+```
+Company(TICKER)_YYYY-MM-DD_Type_Name.pptx
+Nvidia(NVDA)_2026-10-01_Pitch_Smith.pptx
+```
+
+- `Type` is one of: Pitch · Presentation · Model · Report · Update · Feedback
+- **Order doesn't matter** and `_` / `-` / spaces are interchangeable — the parser finds
+  `(TICKER)`, the date, and the type wherever they sit. Just keep the company next to the
+  ticker, since company and presenter are both free text.
+- A bare ticker works too (`NVDA_2026-10-01_Pitch_Smith`); the company name is filled in
+  from `scripts/ticker_company.json` — edit that file to add any ticker it doesn't know.
+- The quarter comes from the folder, so it never needs to be in the filename.
+- Anything unreadable still appears on the site with `?`. Rename it in SharePoint and it
+  corrects itself on the next nightly run. Nothing is ever moved or renamed for you.
+
+**Legacy** — `PAST AMP STOCK PITCHES & UPDATES` is frozen and never renamed. It's parsed
+from its folders (`Company (TICKER)/Updates/file`) by `extract_legacy()`, which is fully
+independent of the rules above, so changes to one can't affect the other.
+
 ## Access on the site
 The page is gated by a password and the catalog is only decoded after it's entered;
 `robots.txt` + `noindex` keep crawlers away. This stops bots, **not** determined people —
