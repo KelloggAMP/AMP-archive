@@ -31,6 +31,7 @@ DATE_MY   = re.compile(r"\b(0[1-9]|1[0-2])[-.](20\d\d)\b")
 YEAR      = re.compile(r"\b(20\d\d)\b")
 LEAD_TICKER = re.compile(r"^([A-Z]{1,6})(?=[\s\-.]|$)")
 TICKER_BEFORE_DATE = re.compile(r"\b([A-Z]{1,6})[\s\-.]*(?=20\d\d[-._]?\d)")
+TICKER_AFTER_DATE  = re.compile(r"20\d\d[-._]?\d\d[-._]?\d\d[\s\-._]+([A-Z]{1,6})\b")
 NOT_TICKERS = {"AMP","THE","AND","FOR","VF","FINAL","DRAFT","WIP","INC","CORP","LLC","US","NEW","FY","Q",
                "DECK","SLIDES","MODEL","DCF","REPORT","MEMO","UPDATE","PITCH","FEEDBACK","NOTES",
                "STOCK","CASE","WEEK","CLASS","FUND","PORT","DOC","FILE","ANNUAL","BOARD"}
@@ -142,8 +143,8 @@ def _ticker_company(text):
 def _bare_ticker(text):
     """Ticker with no parentheses: must already be ALL-CAPS in the name."""
     t = _norm(text)
-    for rx in (TICKER_BEFORE_DATE, LEAD_TICKER):
-        m = rx.search(t) if rx is TICKER_BEFORE_DATE else rx.match(t)
+    for rx in (TICKER_BEFORE_DATE, TICKER_AFTER_DATE, LEAD_TICKER):
+        m = rx.match(t) if rx is LEAD_TICKER else rx.search(t)
         if m and m.group(1) not in NOT_TICKERS:
             return m.group(1)
     return None
