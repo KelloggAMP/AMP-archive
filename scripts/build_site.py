@@ -34,12 +34,15 @@ TICKER_BEFORE_DATE = re.compile(r"\b([A-Z]{1,6})[\s\-.]*(?=20\d\d[-._]?\d)")
 NOT_TICKERS = {"AMP","THE","AND","FOR","VF","FINAL","DRAFT","WIP","INC","CORP","LLC","US","NEW","FY","Q",
                "DECK","SLIDES","MODEL","DCF","REPORT","MEMO","UPDATE","PITCH","FEEDBACK","NOTES",
                "STOCK","CASE","WEEK","CLASS","FUND","PORT","DOC","FILE","ANNUAL","BOARD"}
+# Order matters: the FIRST match wins, so specific artifact types are checked
+# before the generic category words. "MATX_Pitch_Model" must be a Model, and
+# "CBRL_Pitch_Memo" a Report - not both collapsing into Presentation.
 DOC_KEYWORDS = [
-    ("Presentation", ["presentation", "pitch", "deck", "slides"]),
     ("Model", ["model", "dcf"]),
     ("Report", ["report", "write-up", "writeup", "memo"]),
-    ("Update", ["update"]),
     ("Feedback", ["feedback"]),
+    ("Update", ["update"]),
+    ("Presentation", ["presentation", "pitch", "deck", "slides"]),
 ]
 try:
     TICKER_COMPANY = json.loads((Path(__file__).parent / "ticker_company.json").read_text())
