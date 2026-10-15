@@ -32,9 +32,13 @@ YEAR      = re.compile(r"\b(20\d\d)\b")
 LEAD_TICKER = re.compile(r"^([A-Z]{1,6})(?=[\s\-.]|$)")
 TICKER_BEFORE_DATE = re.compile(r"\b([A-Z]{1,6})[\s\-.]*(?=20\d\d[-._]?\d)")
 TICKER_AFTER_DATE  = re.compile(r"20\d\d[-._]?\d\d[-._]?\d\d[\s\-._]+([A-Z]{1,6})\b")
+# Source filenames sometimes carry a company name or a typo where the ticker
+# belongs. Normalised at read time so no file has to be renamed.
+TICKER_ALIASES = {"TESLA": "TSLA", "ITRON": "ITRI", "LVHM": "LVMH", "FACEBOOK": "META"}
 NOT_TICKERS = {"AMP","THE","AND","FOR","VF","FINAL","DRAFT","WIP","INC","CORP","LLC","US","NEW","FY","Q",
                "DECK","SLIDES","MODEL","DCF","REPORT","MEMO","UPDATE","PITCH","FEEDBACK","NOTES",
-               "STOCK","CASE","WEEK","CLASS","FUND","PORT","DOC","FILE","ANNUAL","BOARD"}
+               "STOCK","CASE","WEEK","CLASS","FUND","PORT","DOC","FILE","ANNUAL","BOARD",
+               "PDF","PPT","PPTX","XLS","XLSX","NASH","CFRA","CPD","MISC","NEW"}
 # Order matters: the FIRST match wins, so specific artifact types are checked
 # before the generic category words. "MATX_Pitch_Model" must be a Model, and
 # "CBRL_Pitch_Memo" a Report - not both collapsing into Presentation.
@@ -188,6 +192,7 @@ def extract_legacy(rel_parts, stem, ext):
         if tk:
             ticker, company = tk, co
             break
+    ticker = TICKER_ALIASES.get(ticker, ticker)
     if ticker and not company:
         company = resolve_company(ticker)
     m = DATE_FULL.search(_norm(stem))
@@ -232,6 +237,7 @@ def extract_modern(rel_parts, stem, ext):
                 break
     if not ticker:
         ticker = _bare_ticker(stem) or next((t for t in (_bare_ticker(f) for f in reversed(folders)) if t), None)
+    ticker = TICKER_ALIASES.get(ticker, ticker)
     if ticker and not company:
         company = resolve_company(ticker)
 
