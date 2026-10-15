@@ -50,6 +50,62 @@ except Exception:
     TICKER_COMPANY = {}
 
 
+_NEW_NAMES, _TRIED, _BUDGET = {}, set(), [12]
+_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
+
+
+def _tidy_company(n):
+    n = re.sub(r"\s+", " ", (n or "").strip(" .,"))
+    n = re.sub(r"[,.]?\s+(Inc|Corp|Corporation|Co|Ltd|PLC|S\.?A|N\.?V|Holdings?|Group|Company)\.?$",
+               "", n, flags=re.I).strip(" .,")
+    return n or None
+
+
+def resolve_company(ticker):
+    """Known names win. Anything new is looked up once via Yahoo, best-effort.
+    Any failure (offline, 429, blocked) simply yields no name - never an error."""
+    if not ticker:
+        return None
+    if ticker in TICKER_COMPANY:
+        return TICKER_COMPANY[ticker]
+    if os.environ.get("TICKER_LOOKUP") == "0" or ticker in _TRIED or _BUDGET[0] <= 0:
+        return None
+    _TRIED.add(ticker)
+    _BUDGET[0] -= 1
+    try:
+        import urllib.request
+        url = ("https://query1.finance.yahoo.com/v1/finance/search"
+               f"?q={urllib.parse.quote(ticker)}&quotesCount=5&newsCount=0")
+        req = urllib.request.Request(url, headers={"User-Agent": _UA})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            data = json.loads(r.read().decode())
+        for q in data.get("quotes", []):
+            if (q.get("symbol") or "").upper() == ticker:
+                name = _tidy_company(q.get("longname") or q.get("shortname"))
+                if name:
+                    TICKER_COMPANY[ticker] = name
+                    _NEW_NAMES[ticker] = name
+                    return name
+    except Exception:
+        pass                                  # fail-open by design
+    return None
+
+
+def save_new_names():
+    """Persist anything newly discovered so it never needs looking up again."""
+    if not _NEW_NAMES:
+        return
+    try:
+        f = Path(__file__).parent / "ticker_company.json"
+        cur = json.loads(f.read_text()) if f.exists() else {}
+        cur.update({k: v for k, v in _NEW_NAMES.items() if k not in cur})
+        f.write_text(json.dumps(dict(sorted(cur.items())), indent=1))
+        print(f"  + learned {len(_NEW_NAMES)} new ticker name(s): {', '.join(sorted(_NEW_NAMES))}")
+    except Exception:
+        pass
+
+
 def _norm(t):
     """Underscores, hyphens-as-separators and spaces are all equivalent."""
     return re.sub(r"\s+", " ", (t or "").replace("_", " ")).strip()
@@ -132,7 +188,7 @@ def extract_legacy(rel_parts, stem, ext):
             ticker, company = tk, co
             break
     if ticker and not company:
-        company = TICKER_COMPANY.get(ticker)
+        company = resolve_company(ticker)
     m = DATE_FULL.search(_norm(stem))
     if m:
         period, year = f"{m.group(1)}-{m.group(2)}-{m.group(3)}", m.group(1)
@@ -176,7 +232,7 @@ def extract_modern(rel_parts, stem, ext):
     if not ticker:
         ticker = _bare_ticker(stem) or next((t for t in (_bare_ticker(f) for f in reversed(folders)) if t), None)
     if ticker and not company:
-        company = TICKER_COMPANY.get(ticker)
+        company = resolve_company(ticker)
 
     m = DATE_FULL.search(_norm(stem))
     if m:
@@ -432,6 +488,7 @@ def main():
     else:
         recs = from_graph()
     render(recs, args.title, args.out, args.password)
+    save_new_names()
 
 
 if __name__ == "__main__":

@@ -44,6 +44,12 @@ Nvidia(NVDA)_2026-10-01_Pitch_Smith.pptx
 - A bare ticker works too (`NVDA_2026-10-01_Pitch_Smith`); the company name is filled in
   from `scripts/ticker_company.json` — edit that file to add any ticker it doesn't know.
 - The quarter comes from the folder, so it never needs to be in the filename.
+- Company names come from `scripts/ticker_company.json` (243 tickers). An unknown ticker is
+  looked up once via Yahoo during the build and saved back to that file, so it is never looked
+  up again. If the lookup fails for any reason the build carries on and the company is simply
+  blank — it can never break a run. To bulk-fill after a big import, run locally:
+  `SEC_CONTACT="AMP Archive you@northwestern.edu" python3 scripts/seed_ticker_names.py <folder>`
+  (SEC requires a contact; it is read from the environment and never stored in this repo.)
 - Anything unreadable still appears on the site with `?`. Rename it in SharePoint and it
   corrects itself on the next nightly run. Nothing is ever moved or renamed for you.
 
