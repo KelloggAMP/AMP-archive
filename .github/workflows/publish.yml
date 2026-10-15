@@ -1,11 +1,12 @@
 name: Publish AMP Archive
 
-# Runs nightly on its own, and can be run on demand any time via the
-# "Run workflow" button on the Actions tab. Reads SharePoint via Graph.
+# MANUAL ONLY for now. The nightly schedule is intentionally commented out until
+# the Microsoft Graph secrets are configured — otherwise every nightly run fails
+# and sends a failure email. Re-enable by uncommenting the two schedule lines.
 on:
-  workflow_dispatch:        # manual button, any time
-  schedule:
-    - cron: "0 9 * * *"    # nightly ~09:00 UTC (~4am Chicago)
+  workflow_dispatch:           # "Run workflow" button, any time
+  # schedule:
+  #   - cron: "0 9 * * *"      # nightly ~09:00 UTC (~4am Chicago)
 
 permissions:
   contents: write      # commit the rebuilt site
@@ -16,11 +17,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Safety net: if the Graph secrets aren't set, skip cleanly instead of failing.
+      - name: Check Graph secrets
+        id: cfg
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          if [ -z "$AZURE_CLIENT_ID" ]; then
+            echo "::notice::Graph secrets not configured yet - skipping build (this is not a failure)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/setup-python@v5
+        if: steps.cfg.outputs.ready == 'true'
         with:
           python-version: "3.12"
+
       - run: pip install msal requests
+        if: steps.cfg.outputs.ready == 'true'
+
       - name: Build the site from SharePoint (Microsoft Graph)
+        if: steps.cfg.outputs.ready == 'true'
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -28,7 +48,9 @@ jobs:
           ARCHIVE_FOLDER: ${{ secrets.ARCHIVE_FOLDER }}
           PAGE_PASSWORD: ${{ secrets.PAGE_PASSWORD }}
         run: python scripts/build_site.py --source graph --title "AMP Archive" --password "$PAGE_PASSWORD"
+
       - name: Publish
+        if: steps.cfg.outputs.ready == 'true'
         run: |
           git config user.name "amp-archive-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
