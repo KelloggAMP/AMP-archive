@@ -1,8 +1,8 @@
 # AMP Stock Pitch Archive
 
 A read-only, searchable catalog of the Asset Management Practicum's stock pitches and
-updates. It reads the archive where it lives in SharePoint and publishes a browsable
-index to GitHub Pages. It never moves, renames, or changes any file.
+updates. It reads the archive in SharePoint and publishes a browsable
+index to GitHub Pages.
 
 Live site: https://kelloggamp.github.io/AMP-archive/
 
@@ -11,13 +11,13 @@ Live site: https://kelloggamp.github.io/AMP-archive/
 `.github/workflows/publish.yml` runs `scripts/build_site.py --source graph`, which reads
 one SharePoint site through Microsoft Graph and rewrites `docs/index.html`.
 
-- Nightly, around 09:00 UTC. Faculty just drop files in SharePoint.
+- Runs nightly automatically, around 09:00 UTC.
 - On demand: Actions tab, *Publish AMP Archive*, **Run workflow**.
 
 If nothing in the archive changed, the run makes no commit.
 
-The nightly schedule is currently commented out. Re-enable it once the Graph secrets below
-are set, or every run fails and emails you.
+The nightly schedule is currently commented out and will be enabled once the Graph secrets below
+are set.
 
 ## Required repository secrets
 
@@ -84,8 +84,7 @@ has no quarter.
 ## Access
 
 The page is gated by a password, and the catalog is only decoded after it is entered.
-`robots.txt` and `noindex` keep crawlers away. This stops bots, not determined people.
-The files themselves stay protected by SharePoint login.
+`robots.txt` and `noindex` are aimed to stop bots. The files themselves stay protected by SharePoint login.
 
 ## Publishing
 
