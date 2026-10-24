@@ -1,23 +1,17 @@
 #!/usr/bin/env python3
 """
-AMP Stock Pitch Archive — site builder.
+Builds docs/index.html, a self-contained searchable catalog of the archive.
 
-Builds docs/index.html: one self-contained, searchable catalog website of the
-archive. ONE script, TWO sources — both produce the identical page, so moving
-from local to Graph changes nothing students see.
+Two sources, identical output:
+  --source local --root <folder> --base-url <url>   reads a synced folder
+  --source graph                                    reads SharePoint via Graph
+                                                    (env: AZURE_CLIENT_ID,
+                                                    AZURE_TENANT_ID,
+                                                    SHAREPOINT_SITE_URL,
+                                                    ARCHIVE_FOLDER)
 
-  LOCAL  (now, no IT needed) — read a OneDrive-synced folder on this computer:
-      python3 scripts/build_site.py --source local \
-          --root "/path/to/PAST AMP STOCK PITCHES & UPDATES" \
-          --base-url "https://nuwildcat.sharepoint.com/sites/KSM-AMP/Shared%20Documents/.../PAST%20AMP%20STOCK%20PITCHES%20%26%20UPDATES"
-
-  GRAPH  (later, in the cloud) — read one SharePoint site via Microsoft Graph:
-      python3 scripts/build_site.py --source graph
-      # env: AZURE_CLIENT_ID, AZURE_TENANT_ID, SHAREPOINT_SITE_URL, ARCHIVE_FOLDER
-      # (Graph also returns each file's canonical link automatically.)
-
-It only ever READS names, folders, and links — never file contents, and never
-modifies the archive.
+Reads names, folders and links only. Never opens file contents, never writes to
+the archive.
 """
 import argparse, base64, datetime, json, os, re, sys, urllib.parse
 from pathlib import Path
@@ -32,16 +26,15 @@ YEAR      = re.compile(r"\b(20\d\d)\b")
 LEAD_TICKER = re.compile(r"^([A-Z]{1,6})(?=[\s\-.]|$)")
 TICKER_BEFORE_DATE = re.compile(r"\b([A-Z]{1,6})[\s\-.]*(?=20\d\d[-._]?\d)")
 TICKER_AFTER_DATE  = re.compile(r"20\d\d[-._]?\d\d[-._]?\d\d[\s\-._]+([A-Z]{1,6})\b")
-# Source filenames sometimes carry a company name or a typo where the ticker
-# belongs. Normalised at read time so no file has to be renamed.
+# Source filenames sometimes carry a company name or typo where the ticker
+# belongs. Normalized at read time so no file needs renaming.
 TICKER_ALIASES = {"TESLA": "TSLA", "ITRON": "ITRI", "LVHM": "LVMH", "FACEBOOK": "META"}
 NOT_TICKERS = {"AMP","THE","AND","FOR","VF","FINAL","DRAFT","WIP","INC","CORP","LLC","US","NEW","FY","Q",
                "DECK","SLIDES","MODEL","DCF","REPORT","MEMO","UPDATE","PITCH","FEEDBACK","NOTES",
                "STOCK","CASE","WEEK","CLASS","FUND","PORT","DOC","FILE","ANNUAL","BOARD",
                "PDF","PPT","PPTX","XLS","XLSX","NASH","CFRA","CPD","MISC","NEW"}
-# Order matters: the FIRST match wins, so specific artifact types are checked
-# before the generic category words. "MATX_Pitch_Model" must be a Model, and
-# "CBRL_Pitch_Memo" a Report - not both collapsing into Presentation.
+# First match wins, so specific types precede generic ones. "Pitch_Model" must
+# be a Model, not a Presentation.
 DOC_KEYWORDS = [
     ("Model", ["model", "dcf"]),
     ("Report", ["report", "write-up", "writeup", "memo"]),
@@ -68,8 +61,7 @@ def _tidy_company(n):
 
 
 def resolve_company(ticker):
-    """Known names win. Anything new is looked up once via Yahoo, best-effort.
-    Any failure (offline, 429, blocked) simply yields no name - never an error."""
+    """Known names win. Unknown ones are looked up once via Yahoo, fail-open."""
     if not ticker:
         return None
     if ticker in TICKER_COMPANY:
@@ -98,7 +90,7 @@ def resolve_company(ticker):
 
 
 def save_new_names():
-    """Persist anything newly discovered so it never needs looking up again."""
+    """Persist discovered names so they are never looked up twice."""
     if not _NEW_NAMES:
         return
     try:
@@ -112,7 +104,7 @@ def save_new_names():
 
 
 def _norm(t):
-    """Underscores, hyphens-as-separators and spaces are all equivalent."""
+    """Underscores and spaces are equivalent separators."""
     return re.sub(r"\s+", " ", (t or "").replace("_", " ")).strip()
 
 
@@ -125,7 +117,7 @@ def doc_type(text):
 
 
 def _strip_known(t):
-    """Remove date / type / version tokens so the remainder can be a company name."""
+    """Drop date, type and version tokens, leaving a possible company name."""
     t = DATE_FULL.sub(" ", t)
     t = DATE_MY.sub(" ", t)
     for _lab, kws in DOC_KEYWORDS:
@@ -136,7 +128,7 @@ def _strip_known(t):
 
 
 def _ticker_company(text):
-    """Find (TICKER) ANYWHERE; company = cleaned text immediately before it."""
+    """Find (TICKER) anywhere. Company is the cleaned text just before it."""
     t = _norm(text)
     m = COMPANY_TICKER.search(t)
     if not m:
@@ -145,7 +137,7 @@ def _ticker_company(text):
 
 
 def _bare_ticker(text):
-    """Ticker with no parentheses: must already be ALL-CAPS in the name."""
+    """Unparenthesized ticker. Must already be all-caps in the name."""
     t = _norm(text)
     for rx in (TICKER_BEFORE_DATE, TICKER_AFTER_DATE, LEAD_TICKER):
         m = rx.match(t) if rx is LEAD_TICKER else rx.search(t)
@@ -155,9 +147,8 @@ def _bare_ticker(text):
 
 
 def _quarter_from_period(period):
-    """LEGACY ONLY: estimate the academic quarter from a date.
-    Boundaries match observed AMP sessions (Winter ran Jan-early Mar,
-    Spring from late Mar, Fall from late Sep)."""
+    """Legacy only. Estimates the quarter from a date, using observed AMP
+    session boundaries."""
     if not period:
         return None
     m = re.match(r"^(\d{4})-(\d{2})(?:-(\d{2}))?$", period)
@@ -180,10 +171,8 @@ LEGACY_ROOT = "past amp stock pitches & updates"
 QUARTER = re.compile(r"\b(Winter|Spring|Summer|Fall|Autumn)\s+(20\d\d)\b", re.I)
 
 
-# ---------------------------------------------------------- LEGACY parser ----
-# Frozen. Serves ONLY the "PAST AMP STOCK PITCHES & UPDATES" tree, whose shape is
-# Company (TICKER)/Updates|Pitches/[Company (TICKER) MM-YYYY]/file
-# Do not change this to suit new-format needs - the new parser is separate.
+# Frozen. Serves only the PAST AMP tree: Company (TICKER)/Updates|Pitches/file
+# Do not change this for new-format needs. extract_modern is separate.
 def extract_legacy(rel_parts, stem, ext):
     folders = list(rel_parts[:-1])
     ticker = company = year = period = None
@@ -221,14 +210,13 @@ def extract_legacy(rel_parts, stem, ext):
             "ext": ext.lower().lstrip(".")}
 
 
-# ---------------------------------------------------------- MODERN parser ----
-# Everything outside the legacy tree: quarter folders ("Winter 2027") holding
-# files named Company(TICKER)_YYYY-MM-DD_Type_Name - order/separator agnostic.
+# Everything outside the legacy tree: quarter folders holding files named
+# Company(TICKER)_YYYY-MM-DD_Type_Name. Order and separator agnostic.
 def extract_modern(rel_parts, stem, ext):
     folders = list(rel_parts[:-1])
     ticker = company = year = period = quarter = None
 
-    ticker, company = _ticker_company(stem)          # filename is authoritative
+    ticker, company = _ticker_company(stem)          # filename wins
     if not ticker:
         for f in reversed(folders):
             tk, co = _ticker_company(f)
@@ -264,7 +252,7 @@ def extract_modern(rel_parts, stem, ext):
 
 
 def extract(rel_parts, stem, ext):
-    """Dispatch: the legacy tree keeps its own frozen rules."""
+    """Dispatch. The legacy tree keeps its own frozen rules."""
     if rel_parts and rel_parts[0].strip().lower() == LEGACY_ROOT:
         return extract_legacy(rel_parts, stem, ext)
     return extract_modern(rel_parts, stem, ext)
@@ -429,10 +417,10 @@ function start(){
   document.getElementById('rows').innerHTML=rows.slice(0,4000).map(function(r){
    var link=r.url?'<a class="file" href="'+r.url+'" target="_blank" title="'+esc(r.filename)+'">'+esc(r.filename)+' &#8599;</a>':esc(r.filename);
    return '<tr><td class="tk">'+(r.ticker||'<span class="muted">?</span>')+'</td>'+
-    '<td>'+(esc(r.company)||'<span class="muted">&mdash;</span>')+'</td>'+
-    '<td class="muted">'+(r.period||'&mdash;')+'</td>'+
-    '<td><span class="pill">'+(r.quarter||'&mdash;')+'</span></td>'+
-    '<td>'+(r.doc_type||'&mdash;')+'</td><td>'+link+'</td></tr>'}).join('')}
+    '<td>'+(esc(r.company)||'')+'</td>'+
+    '<td class="muted">'+(r.period||'')+'</td>'+
+    '<td>'+(r.quarter?'<span class="pill">'+r.quarter+'</span>':'')+'</td>'+
+    '<td>'+(r.doc_type||'')+'</td><td>'+link+'</td></tr>'}).join('')}
  [q_,fS,fY,fT].forEach(function(e){e.addEventListener('input',render)});
  render();
 }
@@ -471,11 +459,11 @@ def render(recs, title, out="docs", password=""):
     def _strip_built(x):
         return re.sub(r'window\.BUILT="[^"]*";', 'window.BUILT="";', x)
     if idx.exists() and _strip_built(idx.read_text()) == _strip_built(page):
-        print(f"No changes \u2014 {out}/index.html left as-is ({len(recs)} files).")
+        print(f"No changes. {out}/index.html left as-is ({len(recs)} files).")
         return
     idx.write_text(page)
     tick = len({r["ticker"] for r in recs if r["ticker"]})
-    print(f"Wrote {out}/index.html — {len(recs)} files, {tick} companies.")
+    print(f"Wrote {out}/index.html: {len(recs)} files, {tick} companies.")
 
 
 def main():

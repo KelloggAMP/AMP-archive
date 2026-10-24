@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-#  AMP Archive — LOCAL build + publish (use until Graph is set up)
+#  AMP Archive local build and publish. Use until Graph is set up.
 #  Double-click to rebuild the website from the synced SharePoint
 #  folder and push it to GitHub Pages.
 # ============================================================
@@ -15,7 +15,7 @@ SP_BASE_URL="https://nuwildcat.sharepoint.com/sites/KSM-AMP/Shared%20Documents/H
 pause () { echo; read -n 1 -s -r -p "Press any key to close..."; exit "$1"; }
 
 echo "==============================================="
-echo "   AMP Archive — LOCAL Rebuild & Publish"
+echo "   AMP Archive: Rebuild and Publish"
 echo "==============================================="
 echo
 if [ ! -d "$ARCHIVE_PATH" ]; then
@@ -23,10 +23,10 @@ if [ ! -d "$ARCHIVE_PATH" ]; then
   echo "  Sync it in OneDrive, or edit ARCHIVE_PATH at the top of this file."; pause 1
 fi
 echo "▶ Reading: $ARCHIVE_PATH"
-echo "  (reads names only — for a COMPLETE build, first right-click the folder →"
+echo "  Reads names only. For a complete build, right-click the folder,"
 echo "   'Always keep on this device' and wait for OneDrive to say 'Up to date'.)"
 PW="$(cat .password 2>/dev/null | tr -d "\r\n")"
-[ -z "$PW" ] && echo "  (note: no .password file — site will build WITHOUT the password gate)"
+[ -z "$PW" ] && echo "  No .password file. Site will build with no password gate."
 python3 scripts/build_site.py --source local --root "$ARCHIVE_PATH" \
     --base-url "$SP_BASE_URL" --link-mode path --title "AMP Archive" --password "$PW" \
     || { echo "✖ build failed"; pause 1; }
@@ -35,11 +35,11 @@ echo
 echo "▶ Publishing to GitHub..."
 git add docs
 git commit -m "Update archive $(date +%Y-%m-%d)" 2>/dev/null || echo "  (no changes to publish)"
-git push || { echo "✖ push failed — is your GitHub sign-in set up on this Mac?"; pause 1; }
+git push || { echo "Push failed. Is your GitHub sign-in set up on this Mac?"; pause 1; }
 
 echo
 echo "==============================================="
-echo "   Done — site updates in ~1 min at:"
+echo "   Done. Site updates in about a minute at:"
 echo "   https://kelloggamp.github.io/AMP-archive/"
 echo "==============================================="
 pause 0

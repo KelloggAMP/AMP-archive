@@ -1,8 +1,7 @@
 name: Publish AMP Archive
 
-# MANUAL ONLY for now. The nightly schedule is intentionally commented out until
-# the Microsoft Graph secrets are configured — otherwise every nightly run fails
-# and sends a failure email. Re-enable by uncommenting the two schedule lines.
+# Manual only for now. Re-enable the schedule once the Graph secrets are set,
+# or every nightly run fails and emails you.
 on:
   workflow_dispatch:           # "Run workflow" button, any time
   # schedule:
@@ -18,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Safety net: if the Graph secrets aren't set, skip cleanly instead of failing.
+      # Without the Graph secrets, skip cleanly rather than fail.
       - name: Check Graph secrets
         id: cfg
         env:
